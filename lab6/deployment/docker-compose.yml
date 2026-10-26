@@ -29,8 +29,6 @@ services:
       - "4040-4050:4040-4050"
     environment:
       - JUPYTER_ENABLE_LAB=yes
-      # Bypasses the token requirement for easy local development
-      - JUPYTER_TOKEN=
     volumes:
       - notebooks:/home/jovyan/notebooks  # jovyan is the default user of the image all-spark-notebook:spark-3.1.2. Do not change this
       - data:/home/jovyan/data
@@ -51,19 +49,18 @@ services:
       - "8080:8080"
       - "7077:7077"
     volumes:
-      - spark-data:/home/jovyan/data
-      - spark-checkpoint:/home/jovyan/checkpoint
+      - data:/home/jovyan/data
+      - checkpoint:/home/jovyan/checkpoint
   spark-worker-1:
     build:
       context: ./apache-spark-python3.13    # spark matching the python version of Jupyter lab
     container_name: spark-worker-1
-    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker --cores 1 --memory 2G --webui-port 8081 spark://spark-master:7077 
     depends_on:
       - spark-master
     environment:
       - SPARK_MODE=worker
-      - SPARK_EXECUTOR_MEMORY=2G
-      - SPARK_EXECUTOR_CORES=1
+      - SPARK_WORKER_MEMORY=2G
       - SPARK_WORKER_CORES=1
       - SPARK_WORKER_WEBUI_PORT=8081
     ports:
@@ -75,13 +72,12 @@ services:
     build:
       context: ./apache-spark-python3.13    # spark matching the python version of Jupyter lab
     container_name: spark-worker-2
-    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker --cores 1 --memory 2G --webui-port 8081 spark://spark-master:7077 
     depends_on:
       - spark-master
     environment:
       - SPARK_MODE=worker
-      - SPARK_EXECUTOR_MEMORY=2G
-      - SPARK_EXECUTOR_CORES=1
+      - SPARK_WORKER_MEMORY=2G
       - SPARK_WORKER_CORES=1
       - SPARK_WORKER_WEBUI_PORT=8081
     ports:
@@ -102,12 +98,12 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
       # Listeners configuration
       KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
-      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:9092'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:9092,LISTENER_DOCKER_INTERNAL://kafka1:9093,LISTENER_DOCKER_EXTERNAL://${EXTERNAL_IP}:9092'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT'
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT'
       # Metadata / storage configuration
       KAFKA_LOG_DIRS: '/var/lib/kafka/data'
       CLUSTER_ID: '4L62xdwCQKWvZs96M7NM7Q' # Pre-generated cluster ID for KRaft setup
     volumes:
       - kafka-data:/var/lib/kafka/data
-

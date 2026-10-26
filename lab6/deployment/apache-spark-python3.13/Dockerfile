@@ -22,9 +22,20 @@ ENV PYSPARK_DRIVER_PYTHON=/usr/local/bin/python3
 COPY requirements.txt .
 # Install required python packages
 RUN  apt-get update -y && apt-get install -y python3-wheel
+# This is for a security issue 
 RUN python3 -m pip install "pip @ https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl#sha256=fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
 
 RUN python3 -m pip install --no-cache-dir -r requirements.txt
 
-# switch to spark user
-USER spark
+COPY *.jar /opt/spark/jars/
+
+# Create the temp directory used by Spark - this needs root permissions
+RUN mkdir -p /opt/spark/logs && chmod a+wr /opt/spark/logs
+RUN mkdir -p /opt/spark/work && chmod a+wr /opt/spark/work
+
+# Create a custom user with UID 1000 and name jovyan (used by Jupyter
+RUN useradd -m -u 1000 -g users jovyan
+
+# Switch to the custom user
+USER jovyan
+WORKDIR /home/jovyan
